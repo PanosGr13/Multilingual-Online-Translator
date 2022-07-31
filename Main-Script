@@ -1,0 +1,59 @@
+import requests
+from bs4 import BeautifulSoup
+import argparse
+
+REVERSO = 'https://context.reverso.net/translation'
+HEADERS = {'User-Agent': 'Mozilla/5.0'}
+LANGUAGES = ['arabic', 'german', 'english', 'spanish', 'french', 'hebrew', 'japanese', 'dutch', 'polish', 'portuguese',
+             'romanian', 'russian', 'turkish']
+
+
+def print_handler(message, file):
+    print(message, file=file)
+    print(message)
+
+
+def translator():
+    with open(f'{args.word}.txt', 'w') as output_file:
+        for translation in translations:
+            url = f'{REVERSO}/{args.from_language}-{translation}/{args.word}'.lower()
+            try:
+                response = requests.get(url, headers=HEADERS)
+                response.raise_for_status()
+            except requests.exceptions.ConnectionError:
+                print('Something wrong with your internet connection')
+            except requests.exceptions.HTTPError:
+                print(f'Sorry, unable to find {args.word}')
+                break
+
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            print_handler(f'\n{translation} Translations:', output_file)
+            words = soup.find(id='translations-content').find_all('a', {'class': 'translation'})
+            [print_handler(word.text.strip(), output_file) for word in words[:1]]
+
+            print_handler(f'\n{translation} Examples:', output_file)
+            sentences = soup.find(id='examples-content').find_all('span', {'class': 'text'})
+            for original, translated in zip(sentences[0:1:2], sentences[1:2:2]):
+                print_handler(original.text.strip(), output_file)
+                print_handler(translated.text.strip(), output_file)
+                print_handler('', output_file)
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("from_language")
+parser.add_argument("to_language")
+parser.add_argument("word")
+args = parser.parse_args()
+
+if args.from_language not in LANGUAGES:
+    print(f"Sorry, the program doesn't support {args.from_language}")
+elif args.to_language not in LANGUAGES + ['all']:
+    print(f"Sorry, the program doesn't support {args.to_language}")
+else:
+    if args.to_language == 'all':
+        translations = [language for language in LANGUAGES if language != args.from_language]
+    else:
+        translations = [args.to_language]
+
+    translator()
